@@ -1,0 +1,81 @@
+#!/bin/bash
+
+set -e
+
+if [ -z $QWRAP_IP ]; then
+    echo "Environment variable QWRAP_IP not set"
+    exit 1
+fi
+
+args=($@)
+script=${args[${#args[@]}-1]}
+unset args[${#args[@]}-1]
+rest=${args[@]}
+
+tmpdir=$(ssh $QWRAP_IP mktemp -p /home/$USER/ -d)
+tscript="$tmpdir/$(basename $script)"
+
+loc_tscript=$(mktemp -p /tmp)
+preamble=$(mktemp -p /tmp)
+remainder=$(mktemp -p /tmp)
+
+hashbang="$(head -1 $script | grep '^#!' || echo "")"
+if [ ! -z $hashbang ]; then
+    echo "$hashbang" > $loc_tscript
+fi
+
+## Handle the scripts PBS preamble and comments
+sed -E '1{/^#!/d}' $script \
+    | sed -E '/^[^#].*[^ ].*$/Q' \
+    > $preamble
+
+has_V=$(grep "^#PBS.* -V" $preamble || echo "")
+sed -i "/^#PBS.* -V/d" $preamble
+
+## Set the path in the PBS preamble
+echo "#Automatic path setting, overwritten by an additional -w/-d" >> $loc_tscript
+echo "#PBS -w $PWD" >> $loc_tscript
+echo "#PBS -d $PWD" >> $loc_tscript
+cat $preamble >> $loc_tscript
+echo "" >> $loc_tscript
+
+## If the user wants local variables preserved add the set variables in the remainder
+if [ ! -z "$has_V" ]; then
+    echo "set -a +e" >> $remainder    
+    env | sed "s/()=()/()/" | sed -E 's/=(.*$)/=\"\1\"/' >> $remainder
+    echo "set +a -e" >> $remainder
+    echo "" >> $remainder
+fi
+
+## Add the non-preamble part of the script to the remainder
+sed -nE '/^[^#].*[^ ].*$/,$p' $script >> $remainder
+
+## Handle the remainder in the non-singularity and singularity cases
+if [ -z $SINGULARITY_CONTAINER ]; then
+    echo "#The rest of the script" >> $loc_tscript
+    cat $remainder >> $loc_tscript
+else
+    QWRAP_SINGULARITY_CMD="${QWRAP_SINGULARITY_CMD:-singularity run -B /tmp:/tmp }"
+    echo "#The encoded script:" >> $loc_tscript
+    echo 'script64='"\"$(openssl base64 -A < $remainder)\"" >> $loc_tscript
+    echo 'sing_tscript=$(mktemp)' >> $loc_tscript
+    echo 'chmod +x $sing_tscript' >> $loc_tscript
+    echo 'echo #!/bin/bash > $sing_tscript' >> $loc_tscript
+    echo 'echo "$script64" | openssl base64 -A -d >> $sing_tscript' >> $loc_tscript
+    echo 'module load Singularity' >> $loc_tscript
+    echo "$QWRAP_SINGULARITY_CMD $SINGULARITY_CONTAINER" '$sing_tscript' >> $loc_tscript
+fi
+
+scp -q "$loc_tscript" "$QWRAP_IP":"$tscript"
+
+if [ ! -z $DEBUG ]; then
+    cat "$loc_tscript"
+fi
+
+ssh $QWRAP_IP "qsub $rest $tscript"
+ret=$?
+
+ssh $QWRAP_IP "rm -r $tmpdir"
+rm $loc_tscript $preamble $remainder 
+
+exit $ret

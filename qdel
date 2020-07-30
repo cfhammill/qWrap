@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e -o pipefail
+
+if [ -z $QWRAP_IP ]; then
+    echo "Environment variable QWRAP_IP not set"
+    exit 1
+fi
+
+ssh $QWRAP_IP qdel "$@"
