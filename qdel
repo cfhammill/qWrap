@@ -2,9 +2,15 @@
 
 set -e -o pipefail
 
+script_dir="$(dirname "$(readlink -f "$0")")"
+
+if [ ! -d ~/.ssh/sockets ]; then
+    mkdir ~/.ssh/sockets
+fi
+
 if [ -z $QWRAP_IP ]; then
     echo "Environment variable QWRAP_IP not set"
     exit 1
 fi
 
-ssh $QWRAP_IP qdel "$@"
+ssh -F "$script_dir/ssh_config"  $QWRAP_IP qdel "$@"

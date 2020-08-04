@@ -2,6 +2,12 @@
 
 set -e
 
+script_dir=$(dirname "$(readlink -f "$0")")
+
+if [ ! -d ~/.ssh/sockets/ ]; then
+    mkdir ~/.ssh/sockets/
+fi
+
 if [ -z $QWRAP_IP ]; then
     echo "Environment variable QWRAP_IP not set"
     exit 1
@@ -66,16 +72,16 @@ else
     echo "$QWRAP_SINGULARITY_CMD $SINGULARITY_CONTAINER" '$sing_tscript' >> $loc_tscript
 fi
 
-scp -q "$loc_tscript" "$QWRAP_IP":"$tscript"
+scp -F "$script_dir/ssh_config" -q "$loc_tscript" "$QWRAP_IP":"$tscript"
 
 if [ ! -z $DEBUG ]; then
     cat "$loc_tscript"
 fi
 
-ssh $QWRAP_IP "qsub $rest $tscript"
+ssh -F "$script_dir/ssh_config" $QWRAP_IP "qsub $rest $tscript"
 ret=$?
 
-ssh $QWRAP_IP "rm -r $tmpdir"
+ssh -F "$script_dir/ssh_config" $QWRAP_IP "rm -r $tmpdir"
 rm $loc_tscript $preamble $remainder 
 
 exit $ret
