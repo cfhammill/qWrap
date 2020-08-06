@@ -9,7 +9,7 @@
 stdenv.mkDerivation rec {
   name = "qWrap";
   buildInputs = [ gnused gnugrep stdenv openssl openssh makeWrapper ];
-  src = /hpf/largeprojects/MICe/chammill/2020-04-30_collinearity-investigation/simulations/qWrap;
+  src = ./.;
   dontUnpack = true;
   installPhase = ''
     mkdir -p $out/bin 
