@@ -14,7 +14,7 @@ stdenv.mkDerivation rec {
   installPhase = ''
     mkdir -p $out/bin 
     cd ${src}
-    cp qsub qstat qdel $out/bin
+    cp qsub qstat qdel qselect $out/bin
     for file in $out/bin/*; do
       wrapProgram $file
     done
