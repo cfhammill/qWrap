@@ -18,5 +18,6 @@ stdenv.mkDerivation rec {
     for file in $out/bin/*; do
       wrapProgram $file
     done
+    cp ssh_config $out/bin
   '';    
 }
