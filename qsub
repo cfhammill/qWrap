@@ -38,10 +38,16 @@ sed -E '1{/^#!/d}' $script \
 has_V=$(grep "^#PBS.* -V" $preamble || echo "")
 sed -i "/^#PBS.* -V/d" $preamble
 
-## Set the path in the PBS preamble
-echo "#Automatic path setting, overwritten by an additional -w/-d" >> $loc_tscript
-echo "#PBS -w $PWD" >> $loc_tscript
-echo "#PBS -d $PWD" >> $loc_tscript
+has_d=$(grep "^#PBS.* -d" $preamble || echo "")
+if [[ -z "$has_d" ]]; then
+    echo "#PBS -d $PWD" >> $loc_tscript
+fi
+
+has_w=$(grep "^#PBS.* -w" $preamble || echo "")
+if [[ -z "$has_w" ]]; then
+    echo "#PBS -d $PWD" >> $loc_tscript
+fi
+
 cat $preamble >> $loc_tscript
 echo "" >> $loc_tscript
 
